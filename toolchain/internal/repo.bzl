@@ -294,13 +294,32 @@ def llvm_repo_impl(rctx):
         rctx.file("BUILD.bazel", executable = False)
         return None
 
-    rctx.file(
-        "BUILD.bazel",
-        content = rctx.read(Label("//toolchain:BUILD.llvm_repo")),
-        executable = False,
+    updated_attrs = _download_llvm(rctx)
+
+    libs_result = rctx.execute(
+        [
+            "python3",
+            rctx.path(Label("//toolchain:cmake_parser.py")),
+            "lib/cmake/llvm/LLVMExports.cmake",
+            "lib/cmake/clang/ClangTargets.cmake",
+        ],
+        timeout = 30,
     )
 
-    updated_attrs = _download_llvm(rctx)
+    if libs_result.return_code != 0:
+        fail(
+            "Failed to parse LLVMExports.cmake and ClangTargets.cmake, stderr:\n%s" % libs_result.stderr,
+        )
+    libclang_libs_str = libs_result.stdout
+
+    rctx.template(
+        "BUILD.bazel",
+        Label("//toolchain:BUILD.llvm_repo"),
+        {
+            "%{libclang_libs_str}": libclang_libs_str,
+        },
+        executable = False,
+    )
 
     # We try to avoid patches to the downloaded repo so that it is easier for
     # users to bring their own LLVM distribution through `http_archive`. If we
