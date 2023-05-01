@@ -117,7 +117,7 @@ def cmake_parser(filename: str) -> str:
         "m": "-lm",
         "ZLIB::ZLIB": "-lz",
         "zstd::libzstd_static": None,
-        "Terminfo::terminfo": None,
+        "Terminfo::terminfo": "-lncurses",
         "LibEdit::LibEdit": "-ledit",
         "LibXml2::LibXml2": "-lxml2",
         "-framework CoreServices": "-framework CoreServices",
