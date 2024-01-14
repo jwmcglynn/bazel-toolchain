@@ -116,7 +116,6 @@ def cmake_parser(filename: str) -> str:
     system_library_map = {
         "m": "-lm",
         "ZLIB::ZLIB": "-lz",
-        "zstd::libzstd_static": None,
         "Terminfo::terminfo": "-lncurses",
         "LibEdit::LibEdit": "-ledit",
         "LibXml2::LibXml2": "-lxml2",
@@ -126,14 +125,24 @@ def cmake_parser(filename: str) -> str:
         "-lpthread": "-lpthread",
     }
 
+    dep_map = {
+        "zstd::libzstd_static": "@zstd",
+        "zstd::libzstd_shared": "@zstd",
+    }
+
     # Iterate through the libraries and format the output as a .bzl file
     for lib_name, lib_deps in libraries.items():
-        link_opts = [
-            system_library_map[dep] for dep in lib_deps if dep in system_library_map
-        ]
-        link_opts = [link_opt for link_opt in link_opts if link_opt is not None]
+        link_opts = []
+        external_deps = []
+        internal_deps = []
 
-        lib_deps = [dep for dep in lib_deps if dep not in system_library_map.keys()]
+        for dep in lib_deps:
+            if dep in system_library_map:
+                link_opts.append(system_library_map[dep])
+            elif dep in dep_map:
+                external_deps.append(dep_map[dep])
+            else:
+                internal_deps.append(dep)
 
         bzl_content += f"cc_library(\n"
         bzl_content += f'    name = "lib_{lib_name}",\n'
@@ -141,10 +150,12 @@ def cmake_parser(filename: str) -> str:
         bzl_content += f'        "lib/lib{lib_name}.a",\n'
         bzl_content += f"    ],\n"
 
-        if len(lib_deps) != 0:
+        if len(internal_deps) != 0 or len(external_deps) != 0:
             bzl_content += f"    deps = [\n"
-            for dep in lib_deps:
+            for dep in internal_deps:
                 bzl_content += f'        ":lib_{dep}",\n'
+            for dep in external_deps:
+                bzl_content += f'        "{dep}",\n'
             bzl_content += f"    ],\n"
 
         if len(link_opts) != 0:
